@@ -1,0 +1,13 @@
+version: 0.2
+
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+    commands:
+      - echo "*** Installing ..."
+      - pip install awscli
+      - pip install aws-sam-cli
+      - pip install pylint
+      - apt install jq
