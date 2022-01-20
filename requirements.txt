@@ -1,0 +1,6 @@
+jupyterlab
+boto3
+pandas
+requests
+elasticsearch<7.14.0
+requests_aws4auth
