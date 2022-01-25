@@ -1,0 +1,12 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "oig-a3-api"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-ilealyxm5gpb"
+s3_prefix = "oig-a3-api"
+region = "us-east-1"
+confirm_changeset = false
+capabilities = "CAPABILITY_NAMED_IAM"
+disable_rollback = false
+image_repositories = ["SearchFunction=533793656583.dkr.ecr.us-east-1.amazonaws.com/demo-app-hello-world"]
