@@ -9,7 +9,6 @@ Description: >
 Globals:
   Function:
     Timeout: 3
-
 Resources:
   SearchFunctionIamRole:
     Type: AWS::IAM::Role
@@ -28,22 +27,58 @@ Resources:
       PermissionsBoundary: arn:aws:iam::533793656583:policy/scopePermissions
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+      - arn:aws:iam::aws:policy/AmazonEC2FullAccess
   SearchFunction:
     Type: AWS::Serverless::Function 
     Properties:
       CodeUri: document_search/
-      Handler: app.lambda_handler
-      Runtime: python3.7
       Role: !GetAtt SearchFunctionIamRole.Arn
       Architectures:
         - x86_64
+      PackageType: Image
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-0e3849f6fcb4382ac
+        SubnetIds:
+          - subnet-05458d0f785e641e4
       Events:
         Search:
           Type: Api 
           Properties:
             Path: /search
-            Method: get
-
+            Method: post
+          OptionsMethod:
+            Type: AWS::ApiGateway::Method
+            Properties:
+              AuthorizationType: NONE
+              RestApiId: !Ref oig-a3-api
+              ResourceId: !Ref Search
+              HttpMethod: OPTIONS
+              Integration:
+                IntegrationResponses:
+                - StatusCode: 200
+                  ResponseParameters:
+                    method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                    method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+                    method.response.header.Access-Control-Allow-Origin: "'*'"
+                  ResponseTemplates:
+                    application/json: ''
+                PassthroughBehavior: WHEN_NO_MATCH
+                RequestTemplates:
+                  application/json: '{"statusCode": 200}'
+                Type: MOCK
+              MethodResponses:
+              - StatusCode: 200
+                ResponseModels:
+                  application/json: 'Empty'
+                ResponseParameters:
+                    method.response.header.Access-Control-Allow-Headers: false
+                    method.response.header.Access-Control-Allow-Methods: false
+                    method.response.header.Access-Control-Allow-Origin: true
+    Metadata:
+        Dockerfile: Dockerfile
+        DockerContext: ./document_search
+        DockerTag: v1
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
   # Find out more about other implicit resources you can reference within SAM

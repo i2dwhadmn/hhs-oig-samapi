@@ -4,11 +4,11 @@ import json
 import random
 from datetime import datetime
 from urllib.parse import urlparse
-import requests
+# import requests
 import boto3
 
-import pandas as pd
-import numpy as np
+# import pandas as pd
+# import numpy as np
 import re
 
 from elasticsearch import Elasticsearch, RequestsHttpConnection
@@ -16,94 +16,74 @@ from elasticsearch.client import IndicesClient
 
 from requests_aws4auth import AWS4Auth
 
-def lambda_handler_template(event, context):
-    """Sample pure Lambda function
-
-    Parameters
-    ----------
-    event: dict, required
-        API Gateway Lambda Proxy Input Format
-
-        Event doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
-
-    context: object, required
-        Lambda Context runtime methods and attributes
-
-        Context doc: https://docs.aws.amazon.com/lambda/latest/dg/python-context-object.html
-
-    Returns
-    ------
-    API Gateway Lambda Proxy Output Format: dict
-
-        Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
-    """
-
-    """
-    TODO: delete this template function
-    """
-    # try:
-    #     ip = requests.get("http://checkip.amazonaws.com/")
-    # except requests.RequestException as e:
-    #     # Send some context about this error to Lambda Logs
-    #     print(e)
-
-    #     raise e
-
-    return {
-        "statusCode": 200,
-        "body": json.dumps({
-            "message": "hello world",
-            # "location": ip.text.replace("\n", "")
-        }),
-    }
-
 
 def lambda_handler(event, context):
-    print(json.dumps(event, indent=3, default=str))
-
+    
+    print(event)
+    # print(json.dumps(event, indent=3, default=str))
     search_terms = event["queryStringParameters"]["q"]
     results = search(search_terms)
-    print("Results:")
-    print(json.dumps(results, indent=3, default=str))
+    
+    # print("Results:")
+    # print(json.dumps(results, indent=3, default=str))
 
     return {
         "headers": {"Content-Type": "application/json"},
         "statusCode": 200,
-        "body": json.dumps(results, indent=3, default=str),
+        # "body": json.dumps(results, indent=3, default=str),
+        "body":results,
         "isBase64Encoded": True,
     }
     
+def create_query_json(search_terms):
+    return {
+        "query": {
+            "bool": {
+                "must": [
+                    {
+                        "query_string": {
+                            "query": f"{search_terms}",
+                            # "default_field": "text_highlight",
+                            "default_operator": "and",
+                        }
+                    },
+                ],
+                # "should": [
+                #     {"match": {"year": {"query": f"2020 2021", "boost": 10}}},
+                #     {
+                #         "match_phrase": {
+                #             "text_highlight": {"query": f"{search_terms}", "boost": 100}
+                #         }
+                #     },
+                # ],
+            }
+        },
+        "_source": [
+            "_id",
+            "document_name",
+            "s3_source",
+            "path",
+            "@timestamp",
+        ],
+        "highlight": {
+            "number_of_fragments": 1,
+            "fragment_size": 300,
+            "fields": {
+                "text_highlight": {
+                    "pre_tags": ["<em>"],
+                    "post_tags": ["</em>"],
+                },
+            },
+        },
+        # "aggregations": {
+        #     "path": {"terms": {"field": "path.keyword"}},
+        #     "opportunity": {"terms": {"field": "opportunity.keyword"}},
+        #     "year": {"significant_terms": {"field": "year.keyword"}},
+        # },
+    }
 
-def search(search_terms):
-    index = 'textract' # os.environ["ES_INDEX_BASE"] + "_paragraph"
-    start = datetime.now()
-    
-    ##################################
-    service = 'es'
-    ss = boto3.Session()
-    credentials = ss.get_credentials()
-    region = ss.region_name
-    
-    #ES domain
-    host = "vpc-dusstac-dussta-1n8niblaemqb-otcfzpck6s7czlgni6gxcb4rru.us-east-1.es.amazonaws.com"
-    
-    awsauth = AWS4Auth(credentials.access_key, credentials.secret_key,
-                       region, service, session_token=credentials.token)
-    
-    # set up ES client for future API calls
-    es = Elasticsearch(
-        hosts=[{'host': host, 'port': 443}],
-        http_auth=awsauth,
-        use_ssl=True,
-        verify_certs=True,
-        connection_class=RequestsHttpConnection
-    )
-    
-    # size of the result fragment returned by ES
-    ES_HIGHLIGHT_FRAGMENT_SIZE = 200
-    
-    # HTTP request parameters that will be sent to ES API
-    searchBody = {
+def create_query(search_terms,ES_HIGHLIGHT_FRAGMENT_SIZE):
+    return {
         # set up for string based queries
         "query" : {
             "query_string": {
@@ -119,13 +99,51 @@ def search(search_terms):
             "require_field_match": False
         }
     }
-    print(searchBody["query"]["query_string"]["query"])
+
+
+def search(search_terms):
+    wrt = False
+    index = 'textract' # os.environ["ES_INDEX_BASE"] + "_paragraph"
+    start = datetime.now()
+    
+    ##################################
+    service = 'es'
+    ss = boto3.Session()
+    credentials = ss.get_credentials()
+    region = ss.region_name
+    
+    print("credentials", credentials.access_key, credentials.secret_key)
+    
+    #ES domain
+    host = "vpc-dusstac-dussta-1n8niblaemqb-otcfzpck6s7czlgni6gxcb4rru.us-east-1.es.amazonaws.com"
+    
+    awsauth = AWS4Auth(credentials.access_key, credentials.secret_key,
+                       region, service, session_token=credentials.token) # does this work? in NB yes... here, not sure
+    
+    # set up ES client for future API calls
+    es = Elasticsearch(
+        hosts=[{'host': host, 'port': 443}],
+        http_auth=awsauth,
+        use_ssl=True,
+        verify_certs=True,
+        connection_class=RequestsHttpConnection
+    )
+    
+    # size of the result fragment returned by ES
+    ES_HIGHLIGHT_FRAGMENT_SIZE = 200
+    
+    # HTTP request parameters that will be sent to ES API
+    # searchBody = create_query(search_terms,ES_HIGHLIGHT_FRAGMENT_SIZE)
+    searchBody = create_query_json(search_terms)
+    if wrt:
+        print(searchBody["query"]["query_string"]["query"])
 
     ##################################
     
     
     # search_results = es.search(index, search_terms, query, limit=30)
-    print("\n\n\nsearching:")
+    if wrt:
+        print("\n\n\nsearching:")
     
     # make a query against existing index in ES via call to API
     output = es.search(index=index, size=1000, body=searchBody,
@@ -141,50 +159,29 @@ def search(search_terms):
 
     ##################################################
     # Download and save
-    df_res = pd.DataFrame(columns=['doc_path','doc_name','score', 'highlight'])
+    # df_res = pd.DataFrame(columns=['doc_path','doc_name','score', 'highlight'])
     
     # parse results from search; returns 5 fragments from each source
+    print(bool(output))
     n_results = len(output["hits"]["hits"])
-    print(f"The Elasticsearch query returned {n_results} results.\n")
-    
-    # print(f"Example output:\n\n")
-    # for i,x in enumerate(output["hits"]["hits"][0:2]):
-    #     newrow = {'doc_path':os.path.split(x['_source']['name'])[0],
-    #               'doc_name':os.path.split(x['_source']['name'])[1],
-    #               'score':x['_score'],
-    #               'highlight':''}
-    #     for j,highlight in enumerate(x['highlight']['content']):
-    #         print(f"SOURCE {i}: HIGHLIGHT {j}")
-    #         highlight = highlight.replace("\n"," ")
-    #         print(f"{highlight}\n")
-    #         newrow['highlight'] = highlight
-    #         df_res.loc[df_res.shape[0],:] = newrow
-            
-    # # save the file
-    # flnm = 'query_' + re.sub('\W+','', keyword.replace(" ","_").lower()) + '_1.csv'
+    if wrt:
+        print(f"The Elasticsearch query returned {n_results} results.\n")
     
     ##################################################
 
-    
-    # search_results = es.search(index, search_terms, searchBody, _source=True)# limit=30, limit is unexpected keyword
-    #                             _source=True, filter_path=['hits.hits._id',
-    #                                                         'hits.hits._source',
-    #                                                         'hits.hits.highlight',
-    #                                                         'hits.hits._score'])
-    print("\n\nSearchResults obj:")
-    print(df_res)
-    # search_results = group_search_results_by_document_name(search_results)
-    # print(search_results)
+    if wrt:
+        print("\n\nSearchResults obj:")
+    # print(df_res)
 
     results = {}
     results["q"] = search_terms
     # results["aggregations"] = output.aggregations # will it work?
     hits = []
     # for hit in output["hits"]["hits"]:
-    for i,x in enumerate(output["hits"]["hits"][0:2]):
+    for i,x in enumerate(output["hits"]["hits"]):
         new_item = {}
         # new_item["_id"] = hit.get_field("_id")
-        new_item["document_path"] = os.path.split(x['_source']['name'])[0]#hit.get_field("document_name")
+        # new_item["document_path"] = os.path.split(x['_source']['name'])[0]#hit.get_field("document_name")
         new_item["document_name"] = os.path.split(x['_source']['name'])[1]#hit.get_field("document_name")
         new_item["score"] = x['_score']
         # new_item["opportunity"] = hit.get_field("opportunity")

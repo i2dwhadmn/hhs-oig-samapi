@@ -9,4 +9,4 @@ region = "us-east-1"
 confirm_changeset = false
 capabilities = "CAPABILITY_NAMED_IAM"
 disable_rollback = false
-image_repositories = ["SearchFunction=533793656583.dkr.ecr.us-east-1.amazonaws.com/demo-app-hello-world"]
+image_repositories = ["SearchFunction=533793656583.dkr.ecr.us-east-1.amazonaws.com/oiga3apipostb2ae5da3/searchfunction2c7794f78repo"]
