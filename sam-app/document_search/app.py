@@ -21,7 +21,7 @@ def lambda_handler(event, context):
     
     print(event)
     # print(json.dumps(event, indent=3, default=str))
-    search_terms = event["queryStringParameters"]["q"]
+    search_terms = event["queryStringParameters"]["q"] # TODO 
     results = search(search_terms)
     
     # print("Results:")
@@ -133,8 +133,8 @@ def search(search_terms):
     ES_HIGHLIGHT_FRAGMENT_SIZE = 200
     
     # HTTP request parameters that will be sent to ES API
-    # searchBody = create_query(search_terms,ES_HIGHLIGHT_FRAGMENT_SIZE)
-    searchBody = create_query_json(search_terms)
+    searchBody = create_query(search_terms,ES_HIGHLIGHT_FRAGMENT_SIZE)
+    # searchBody = create_query_json(search_terms)
     if wrt:
         print(searchBody["query"]["query_string"]["query"])
 
