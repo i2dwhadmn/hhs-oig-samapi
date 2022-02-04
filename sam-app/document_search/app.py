@@ -6,14 +6,14 @@ from datetime import datetime
 from urllib.parse import urlparse
 # import requests
 import boto3
+import dateutil.parser as parser
 
 # import pandas as pd
-# import numpy as np
+import numpy as np
 import re
 
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch.client import IndicesClient
-
 from requests_aws4auth import AWS4Auth
 
 
@@ -100,8 +100,55 @@ def create_query(search_terms,ES_HIGHLIGHT_FRAGMENT_SIZE):
         }
     }
 
+def createDate(): 
+    #TODO return dates in ISO format, 'YYYY-MM-DDTHH:MM:SS.DDDZ'
+    #TODO run it with a random seed everytime
+    
+    # regenerated only when this is run
+    randconfig = {
+                  'year': np.random.randint(2000,2022),
+                  'month': np.random.randint(1, 12),
+                  'day': np.random.randint(1,28),
+                  'hour': np.random.randint(1, 24),
+                  'minute': np.random.randint(1, 60),
+                  'second': np.random.uniform(1, 60),
+                  'sign': np.random.choice(['-','+']),
+                  'tz_hr': np.random.randint(0, 12),
+                  'tz_min': np.random.choice([0, 30])
+                 }
+                 
+    pattern = '%04d%02d%02d %02d:%02d:%02.3d%s%02d%02d'
+    dtstr = pattern %(randconfig['year'], randconfig['month'], randconfig['day'], randconfig['hour'], randconfig['minute'], randconfig['second'], randconfig['sign'], randconfig['tz_hr'], randconfig['tz_min'])
+    
+    return parser.parse(dtstr).isoformat()
+    
+    # pattern = '%d%02d%02d%02d%02d%02.3f%s%02d%02d' # seconds upto ms
+    
+    # dtstr = pattern %(randconfig['year'], randconfig['month'], randconfig['day'], randconfig['hour'], randconfig['minute'], randconfig['second'], randconfig['sign'], randconfig['tz_hr'], randconfig['tz_min'])
+    
+    # if return_type.lower() == 'tuple':
+    #     clean = re.split('([+ -])', dtstr)
+    #     gmt = datetime.strptime(clean[0], dtformat)
+    #     timezone = clean[1] + clean[2]
+    #     return [gmt, timezone]
+    # elif return_type.lower() == 'iso':
+    #     return parser.parse(dtstr).isoformat()
+    # else:
+    #     return dtstr
+    
 
-def search(search_terms):
+def get_document_url(bucket_name, object_key, expirein = 60):
+    url = boto3.client('s3').generate_presigned_url(ClientMethod='get_object', 
+                                            Params={'Bucket': bucket_name, 'Key': object_key},
+                                            ExpiresIn=expirein)
+    return url
+
+
+
+def search(search_terms, 
+            ES_HIGHLIGHT_FRAGMENT_SIZE = 200, 
+            host = "vpc-dusstac-dussta-1n8niblaemqb-otcfzpck6s7czlgni6gxcb4rru.us-east-1.es.amazonaws.com" #ES domain
+            ):
     wrt = False
     index = 'textract' # os.environ["ES_INDEX_BASE"] + "_paragraph"
     start = datetime.now()
@@ -113,9 +160,6 @@ def search(search_terms):
     region = ss.region_name
     
     print("credentials", credentials.access_key, credentials.secret_key)
-    
-    #ES domain
-    host = "vpc-dusstac-dussta-1n8niblaemqb-otcfzpck6s7czlgni6gxcb4rru.us-east-1.es.amazonaws.com"
     
     awsauth = AWS4Auth(credentials.access_key, credentials.secret_key,
                        region, service, session_token=credentials.token) # does this work? in NB yes... here, not sure
@@ -130,7 +174,6 @@ def search(search_terms):
     )
     
     # size of the result fragment returned by ES
-    ES_HIGHLIGHT_FRAGMENT_SIZE = 200
     
     # HTTP request parameters that will be sent to ES API
     searchBody = create_query(search_terms,ES_HIGHLIGHT_FRAGMENT_SIZE)
@@ -158,11 +201,8 @@ def search(search_terms):
     )
 
     ##################################################
-    # Download and save
-    # df_res = pd.DataFrame(columns=['doc_path','doc_name','score', 'highlight'])
-    
     # parse results from search; returns 5 fragments from each source
-    print(bool(output))
+    print(bool(output)) #TODO handle empty search output
     n_results = len(output["hits"]["hits"])
     if wrt:
         print(f"The Elasticsearch query returned {n_results} results.\n")
@@ -175,28 +215,22 @@ def search(search_terms):
 
     results = {}
     results["q"] = search_terms
-    # results["aggregations"] = output.aggregations # will it work?
     hits = []
-    # for hit in output["hits"]["hits"]:
     for i,x in enumerate(output["hits"]["hits"]):
         new_item = {}
-        # new_item["_id"] = hit.get_field("_id")
         # new_item["document_path"] = os.path.split(x['_source']['name'])[0]#hit.get_field("document_name")
         new_item["document_name"] = os.path.split(x['_source']['name'])[1]#hit.get_field("document_name")
         new_item["score"] = x['_score']
-        # new_item["opportunity"] = hit.get_field("opportunity")
-        # new_item["agency"] = hit.get_field("agency")
-        # new_item["bd_doc_type"] = hit.get_field("bd_doc_type")
-        # new_item["year"] = hit.get_field("year")
-        # new_item["path"] = hit.get_field("path")
-        # new_item["text_type"] = hit.get_field("text_type")
         new_item["highlights"] = x['highlight']#hit.highlights[0:2]
+        new_item["modified_date"] = createDate()
+        print(new_item["modified_date"])
+        new_item["document_url"] = get_document_url(bucket_name=x['_source']['bucket'], object_key=x['_source']['name'])
         hits.append(new_item)
     results["hits"] = hits
-    # results["total"] = search_results.total
     end = datetime.now()
     results["api_duration_seconds"] = (end - start).seconds
     results["index"] = index
+    
     
     
     return results
