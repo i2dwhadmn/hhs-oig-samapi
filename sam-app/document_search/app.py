@@ -117,7 +117,7 @@ def createDate():
     dtstr = pattern %(randconfig['year'], randconfig['month'], randconfig['day'], randconfig['hour'], randconfig['minute'], randconfig['second'], randconfig['sign'], randconfig['tz_hr'], randconfig['tz_min'])
     # print(dtstr)
     
-    return parser.parse(dtstr).isoformat()
+    return parser.parse(dtstr).isoformat("T","milliseconds")
     
 
 def get_document_url(bucket_name, object_key, expirein = 60):
