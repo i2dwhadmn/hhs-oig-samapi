@@ -4,11 +4,8 @@ import json
 import random
 from datetime import datetime
 from urllib.parse import urlparse
-# import requests
 import boto3
 import dateutil.parser as parser
-
-# import pandas as pd
 import numpy as np
 import re
 
@@ -30,8 +27,7 @@ def lambda_handler(event, context):
     return {
         "headers": {"Content-Type": "application/json"},
         "statusCode": 200,
-        # "body": json.dumps(results, indent=3, default=str),
-        "body":results,
+        "body": results,
         "isBase64Encoded": True,
     }
     
@@ -101,7 +97,6 @@ def create_query(search_terms,ES_HIGHLIGHT_FRAGMENT_SIZE):
     }
 
 def createDate(): 
-    #TODO return dates in ISO format, 'YYYY-MM-DDTHH:MM:SS.DDDZ'
     #TODO run it with a random seed everytime
     
     # regenerated only when this is run
@@ -159,7 +154,8 @@ def search(search_terms,
     credentials = ss.get_credentials()
     region = ss.region_name
     
-    print("credentials", credentials.access_key, credentials.secret_key)
+    if wrt:
+        print("credentials", credentials.access_key, credentials.secret_key)
     
     awsauth = AWS4Auth(credentials.access_key, credentials.secret_key,
                        region, service, session_token=credentials.token) # does this work? in NB yes... here, not sure
@@ -202,8 +198,14 @@ def search(search_terms,
 
     ##################################################
     # parse results from search; returns 5 fragments from each source
-    print(bool(output)) #TODO handle empty search output
-    n_results = len(output["hits"]["hits"])
+    if wrt:
+        print(bool(output)) # TODO handle empty search output
+        
+    if not bool(output):
+        n_results = 0
+    else:
+        n_results = len(output["hits"]["hits"])
+        
     if wrt:
         print(f"The Elasticsearch query returned {n_results} results.\n")
     
@@ -216,21 +218,25 @@ def search(search_terms,
     results = {}
     results["q"] = search_terms
     hits = []
-    for i,x in enumerate(output["hits"]["hits"]):
-        new_item = {}
-        # new_item["document_path"] = os.path.split(x['_source']['name'])[0]#hit.get_field("document_name")
-        new_item["document_name"] = os.path.split(x['_source']['name'])[1]#hit.get_field("document_name")
-        new_item["score"] = x['_score']
-        new_item["highlights"] = x['highlight']#hit.highlights[0:2]
-        new_item["modified_date"] = createDate()
-        print(new_item["modified_date"])
-        new_item["document_url"] = get_document_url(bucket_name=x['_source']['bucket'], object_key=x['_source']['name'])
-        hits.append(new_item)
-    results["hits"] = hits
+    
+    if bool(output):
+        for i,x in enumerate(output["hits"]["hits"]):
+            new_item = {}
+            # new_item["document_path"] = os.path.split(x['_source']['name'])[0]#hit.get_field("document_name")
+            new_item["document_name"] = os.path.split(x['_source']['name'])[1]#hit.get_field("document_name")
+            new_item["score"] = x['_score']
+            new_item["highlights"] = x['highlight']#hit.highlights[0:2]
+            new_item["modified_date"] = createDate()
+            new_item["document_url"] = get_document_url(bucket_name=x['_source']['bucket'], object_key=x['_source']['name'])
+            hits.append(new_item)
+        results["hits"] = hits
+    else:
+        results["hits"] = output
+        
+    # common to both
     end = datetime.now()
     results["api_duration_seconds"] = (end - start).seconds
     results["index"] = index
-    
     
     
     return results
