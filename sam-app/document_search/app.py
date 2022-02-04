@@ -16,7 +16,7 @@ from requests_aws4auth import AWS4Auth
 
 def lambda_handler(event, context):
     
-    print(event)
+    # print(event)
     # print(json.dumps(event, indent=3, default=str))
     search_terms = event["queryStringParameters"]["q"] # TODO 
     results = search(search_terms)
@@ -88,6 +88,7 @@ def create_query(search_terms,ES_HIGHLIGHT_FRAGMENT_SIZE):
         },
         # set up for result fragments that are returned by ES
         "highlight" : {
+            "number_of_fragments": 1,
             "fields" : {
                 "content" : { "pre_tags" : [""], "post_tags" : [""] },
             },
@@ -97,7 +98,7 @@ def create_query(search_terms,ES_HIGHLIGHT_FRAGMENT_SIZE):
     }
 
 def createDate(): 
-    #TODO run it with a random seed everytime
+    #TODO run it with a random seed
     
     # regenerated only when this is run
     randconfig = {
@@ -112,24 +113,11 @@ def createDate():
                   'tz_min': np.random.choice([0, 30])
                  }
                  
-    pattern = '%04d%02d%02d %02d:%02d:%02.3d%s%02d%02d'
+    pattern = '%04d%02d%02d %02d:%02d:%02.3f%s%02d%02d'
     dtstr = pattern %(randconfig['year'], randconfig['month'], randconfig['day'], randconfig['hour'], randconfig['minute'], randconfig['second'], randconfig['sign'], randconfig['tz_hr'], randconfig['tz_min'])
+    # print(dtstr)
     
     return parser.parse(dtstr).isoformat()
-    
-    # pattern = '%d%02d%02d%02d%02d%02.3f%s%02d%02d' # seconds upto ms
-    
-    # dtstr = pattern %(randconfig['year'], randconfig['month'], randconfig['day'], randconfig['hour'], randconfig['minute'], randconfig['second'], randconfig['sign'], randconfig['tz_hr'], randconfig['tz_min'])
-    
-    # if return_type.lower() == 'tuple':
-    #     clean = re.split('([+ -])', dtstr)
-    #     gmt = datetime.strptime(clean[0], dtformat)
-    #     timezone = clean[1] + clean[2]
-    #     return [gmt, timezone]
-    # elif return_type.lower() == 'iso':
-    #     return parser.parse(dtstr).isoformat()
-    # else:
-    #     return dtstr
     
 
 def get_document_url(bucket_name, object_key, expirein = 60):
@@ -142,14 +130,16 @@ def get_document_url(bucket_name, object_key, expirein = 60):
 
 def search(search_terms, 
             ES_HIGHLIGHT_FRAGMENT_SIZE = 200, 
-            host = "vpc-dusstac-dussta-1n8niblaemqb-otcfzpck6s7czlgni6gxcb4rru.us-east-1.es.amazonaws.com" #ES domain
+            host = "vpc-dusstac-dussta-1n8niblaemqb-otcfzpck6s7czlgni6gxcb4rru.us-east-1.es.amazonaws.com", #ES domain
+            index = 'textract',
+            wrt = False,
+            service = 'es',
+            port = 443,
             ):
-    wrt = False
-    index = 'textract' # os.environ["ES_INDEX_BASE"] + "_paragraph"
+                
     start = datetime.now()
     
     ##################################
-    service = 'es'
     ss = boto3.Session()
     credentials = ss.get_credentials()
     region = ss.region_name
@@ -162,7 +152,7 @@ def search(search_terms,
     
     # set up ES client for future API calls
     es = Elasticsearch(
-        hosts=[{'host': host, 'port': 443}],
+        hosts=[{'host': host, 'port': port}],
         http_auth=awsauth,
         use_ssl=True,
         verify_certs=True,
@@ -198,9 +188,6 @@ def search(search_terms,
 
     ##################################################
     # parse results from search; returns 5 fragments from each source
-    if wrt:
-        print(bool(output)) # TODO handle empty search output
-        
     if not bool(output):
         n_results = 0
     else:
@@ -219,19 +206,26 @@ def search(search_terms,
     results["q"] = search_terms
     hits = []
     
-    if bool(output):
+    if bool(output): # if results not empty
         for i,x in enumerate(output["hits"]["hits"]):
             new_item = {}
             # new_item["document_path"] = os.path.split(x['_source']['name'])[0]#hit.get_field("document_name")
-            new_item["document_name"] = os.path.split(x['_source']['name'])[1]#hit.get_field("document_name")
+            new_item["document_name"] = os.path.split(x['_source']['name'])[1]
             new_item["score"] = x['_score']
-            new_item["highlights"] = x['highlight']#hit.highlights[0:2]
+            new_item["highlights"] = x['highlight']
             new_item["modified_date"] = createDate()
             new_item["document_url"] = get_document_url(bucket_name=x['_source']['bucket'], object_key=x['_source']['name'])
             hits.append(new_item)
         results["hits"] = hits
     else:
-        results["hits"] = output
+        new_item = {}
+        new_item["document_name"] = {}
+        new_item["score"] = {}
+        new_item["highlights"] = {}
+        new_item["modified_date"] = {}
+        new_item["document_url"] = {}
+        hits.append(new_item)
+        results["hits"] = hits
         
     # common to both
     end = datetime.now()
