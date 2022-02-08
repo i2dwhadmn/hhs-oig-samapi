@@ -25,7 +25,12 @@ def lambda_handler(event, context):
     # print(json.dumps(results, indent=3, default=str))
 
     return {
-        "headers": {"Content-Type": "application/json"},
+        "headers": 
+            {"Content-Type": "application/json",
+             'Access-Control-Allow-Headers': 'Content-Type',
+             'Access-Control-Allow-Origin': '*',
+             'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
+            },
         "statusCode": 200,
         "body": results,
         "isBase64Encoded": True,
@@ -120,7 +125,7 @@ def createDate():
     return parser.parse(dtstr).isoformat("T","milliseconds")
     
 
-def get_document_url(bucket_name, object_key, expirein = 60):
+def get_document_url(bucket_name, object_key, expirein = 3600):
     url = boto3.client('s3').generate_presigned_url(ClientMethod='get_object', 
                                             Params={'Bucket': bucket_name, 'Key': object_key},
                                             ExpiresIn=expirein)
@@ -212,16 +217,22 @@ def search(search_terms,
             # new_item["document_path"] = os.path.split(x['_source']['name'])[0]#hit.get_field("document_name")
             new_item["document_name"] = os.path.split(x['_source']['name'])[1]
             new_item["score"] = x['_score']
-            new_item["highlights"] = x['highlight']
+            print(i, x.keys())
+            # print(x['highlight'])
+            try:
+                new_item["highlights"] = x['highlight']
+            except:
+                new_item["highlights"] = {"content":[""]}
             new_item["modified_date"] = createDate()
             new_item["document_url"] = get_document_url(bucket_name=x['_source']['bucket'], object_key=x['_source']['name'])
+            print(x['_source']['name'], ', ', new_item["document_url"])
             hits.append(new_item)
         results["hits"] = hits
     else:
         new_item = {}
         new_item["document_name"] = {}
         new_item["score"] = {}
-        new_item["highlights"] = {}
+        new_item["highlights"] = {"content":[""]}
         new_item["modified_date"] = {}
         new_item["document_url"] = {}
         hits.append(new_item)

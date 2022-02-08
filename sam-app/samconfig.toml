@@ -2,11 +2,11 @@ version = 0.1
 [default]
 [default.deploy]
 [default.deploy.parameters]
-stack_name = "oig-a3-api"
+stack_name = "oig-a3-api-download"
 s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-ilealyxm5gpb"
-s3_prefix = "oig-a3-api"
+s3_prefix = "oig-a3-api-download"
 region = "us-east-1"
 confirm_changeset = false
 capabilities = "CAPABILITY_NAMED_IAM"
 disable_rollback = false
-image_repositories = ["SearchFunction=533793656583.dkr.ecr.us-east-1.amazonaws.com/oiga3apipostb2ae5da3/searchfunction2c7794f78repo"]
+image_repositories = ["SearchFunction4=533793656583.dkr.ecr.us-east-1.amazonaws.com/oiga3apidownloadd7aaa8e8/searchfunction4871e5d77repo"]

@@ -10,10 +10,10 @@ Globals:
   Function:
     Timeout: 3
 Resources:
-  SearchFunctionIamRole:
+  SearchFunction4IamRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: SearchFunctionIamRole
+      RoleName: SearchFunction4IamRole
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -28,11 +28,11 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
       - arn:aws:iam::aws:policy/AmazonEC2FullAccess
-  SearchFunction:
+  SearchFunction4:
     Type: AWS::Serverless::Function 
     Properties:
       CodeUri: document_search/
-      Role: !GetAtt SearchFunctionIamRole.Arn
+      Role: !GetAtt SearchFunction4IamRole.Arn
       Architectures:
         - x86_64
       PackageType: Image
@@ -51,7 +51,7 @@ Resources:
             Type: AWS::ApiGateway::Method
             Properties:
               AuthorizationType: NONE
-              RestApiId: !Ref oig-a3-api
+              RestApiId: !Ref oig-a3-api-auth
               ResourceId: !Ref Search
               HttpMethod: OPTIONS
               Integration:
@@ -88,7 +88,7 @@ Outputs:
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/search/"
   SearchFunction:
     Description: "Search Lambda Function ARN"
-    Value: !GetAtt SearchFunction.Arn
+    Value: !GetAtt SearchFunction4.Arn
   SearchFunctionIamRole:
     Description: "Implicit IAM Role created for Search function"
-    Value: !GetAtt SearchFunctionIamRole.Arn
+    Value: !GetAtt SearchFunction4IamRole.Arn
