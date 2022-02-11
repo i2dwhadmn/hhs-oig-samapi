@@ -9,32 +9,74 @@ Globals:
   Function:
     Timeout: 3
 Resources:
-  HelloWorldFunction:
+  SearchFunctionIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: SearchFunctionIamRole
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      PermissionsBoundary: arn:aws:iam::533793656583:policy/scopePermissions
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+    Metadata:
+      SamResourceId: SearchFunctionIamRole
+  SearchFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://oig-a3-portal-artifacts/904cf0db561eafc3a0d56f0df5d4c25d
+      CodeUri: s3://oig-a3search-portal-artifacts/1f58f334773c248f6c795996d642a32f
       Handler: app.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.7
+      Role:
+        Fn::GetAtt:
+        - SearchFunctionIamRole
+        - Arn
+      Layers:
+      - Ref: CodeDepLayer
+      Architectures:
+      - x86_64
       Events:
-        HelloWorld:
+        Search:
           Type: Api
           Properties:
             Path: /search
             Method: get
+    Metadata:
+      SamResourceId: SearchFunction
+  CodeDepLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: sam-app-dependencies
+      Description: Dependencies for SAM search app
+      ContentUri: s3://oig-a3search-portal-artifacts/ff12907a3aabc794a9ead3e84a79121f
+      CompatibleRuntimes:
+      - python3.7
+      RetentionPolicy: Retain
+    Metadata:
+      BuildArchitecture: x86_64
+      BuildMethod: python3.7
+      SamResourceId: CodeDepLayer
 Outputs:
-  HelloWorldApi:
-    Description: API Gateway endpoint URL for Prod stage for Hello World function
+  SearchApi:
+    Description: API Gateway endpoint URL for Prod stage for Search function
     Value:
       Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/search/
-  HelloWorldFunction:
-    Description: Hello World Lambda Function ARN
+  SearchFunction:
+    Description: Search Lambda Function ARN
     Value:
       Fn::GetAtt:
-      - HelloWorldFunction
+      - SearchFunction
       - Arn
-  HelloWorldFunctionIamRole:
-    Description: Implicit IAM Role created for Hello World function
+  SearchFunctionIamRole:
+    Description: Implicit IAM Role created for Search function
     Value:
       Fn::GetAtt:
-      - HelloWorldFunctionRole
+      - SearchFunctionIamRole
       - Arn

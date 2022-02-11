@@ -10,10 +10,10 @@ Globals:
   Function:
     Timeout: 3
 Resources:
-  SearchFunction4IamRole:
+  SearchFunctionIamRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: SearchFunction4IamRole
+      RoleName: SearchFunctionIamRole
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -28,11 +28,11 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
       - arn:aws:iam::aws:policy/AmazonEC2FullAccess
-  SearchFunction4:
+  SearchFunction:
     Type: AWS::Serverless::Function 
     Properties:
       CodeUri: document_search/
-      Role: !GetAtt SearchFunction4IamRole.Arn
+      Role: !GetAtt SearchFunctionIamRole.Arn
       Architectures:
         - x86_64
       PackageType: Image
@@ -51,7 +51,7 @@ Resources:
             Type: AWS::ApiGateway::Method
             Properties:
               AuthorizationType: NONE
-              RestApiId: !Ref oig-a3-api-auth
+              RestApiId: !Ref oig-a3-api
               ResourceId: !Ref Search
               HttpMethod: OPTIONS
               Integration:
